@@ -175,6 +175,8 @@ type Executor<'Root>(schema: ISchema<'Root>, middlewares : IExecutorMiddleware s
     new(schema) =
         Executor(schema, middlewares = Seq.empty)
 
+    abstract member AsyncExecute: ExecutionPlan * 'Root option * ImmutableDictionary<string, JsonElement> option -> Async<GQLExecutionResult>
+
     /// <summary>
     /// Asynchronously executes a provided execution plan. In case of repetitive queries, execution plan may be preprocessed
     /// and cached using `documentId` as an identifier.
@@ -186,7 +188,7 @@ type Executor<'Root>(schema: ISchema<'Root>, middlewares : IExecutorMiddleware s
     /// <param name="executionPlan">Execution plan for the operation.</param>
     /// <param name="data">Optional object provided as a root to all top level field resolvers</param>
     /// <param name="variables">Map of all variable values provided by the client request.</param>
-    member _.AsyncExecute(executionPlan: ExecutionPlan, ?data: 'Root, ?variables: ImmutableDictionary<string, JsonElement>): Async<GQLExecutionResult> =
+    default _.AsyncExecute(executionPlan: ExecutionPlan, ?data: 'Root, ?variables: ImmutableDictionary<string, JsonElement>): Async<GQLExecutionResult> =
         execute (executionPlan, data, variables)
 
     /// <summary>
@@ -200,10 +202,10 @@ type Executor<'Root>(schema: ISchema<'Root>, middlewares : IExecutorMiddleware s
     /// <param name="variables">Map of all variable values provided by the client request.</param>
     /// <param name="operationName">In case when document consists of many operations, this field describes which of them to execute.</param>
     /// <param name="meta">A plain dictionary of metadata that can be used through execution customizations.</param>
-    member _.AsyncExecute(ast: Document, ?data: 'Root, ?variables: ImmutableDictionary<string, JsonElement>, ?operationName: string, ?meta : Metadata): Async<GQLExecutionResult> =
+    member this.AsyncExecute(ast: Document, ?data: 'Root, ?variables: ImmutableDictionary<string, JsonElement>, ?operationName: string, ?meta : Metadata): Async<GQLExecutionResult> =
         let meta = defaultArg meta Metadata.Empty
         match createExecutionPlan (ast, operationName, meta) with
-        | Ok executionPlan -> execute (executionPlan, data, variables)
+        | Ok executionPlan -> this.AsyncExecute (executionPlan, data, variables)
         | Error (documentId, errors) -> async.Return <| GQLExecutionResult.Invalid(documentId, errors, meta)
 
     /// <summary>
@@ -217,11 +219,11 @@ type Executor<'Root>(schema: ISchema<'Root>, middlewares : IExecutorMiddleware s
     /// <param name="variables">Map of all variable values provided by the client request.</param>
     /// <param name="operationName">In case when document consists of many operations, this field describes which of them to execute.</param>
     /// <param name="meta">A plain dictionary of metadata that can be used through execution customizations.</param>
-    member _.AsyncExecute(queryOrMutation: string, ?data: 'Root, ?variables: ImmutableDictionary<string, JsonElement>, ?operationName: string, ?meta : Metadata): Async<GQLExecutionResult> =
+    member this.AsyncExecute(queryOrMutation: string, ?data: 'Root, ?variables: ImmutableDictionary<string, JsonElement>, ?operationName: string, ?meta : Metadata): Async<GQLExecutionResult> =
         let meta = defaultArg meta Metadata.Empty
         let ast = parse queryOrMutation
         match createExecutionPlan (ast, operationName, meta) with
-        | Ok executionPlan -> execute (executionPlan, data, variables)
+        | Ok executionPlan -> this.AsyncExecute (executionPlan, data, variables)
         | Error (documentId, errors) -> async.Return <| GQLExecutionResult.Invalid(documentId, errors, meta)
 
     /// Creates an execution plan for provided GraphQL document AST without
